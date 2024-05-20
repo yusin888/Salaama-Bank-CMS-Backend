@@ -1,47 +1,82 @@
-const client = require('./db.js')
 const express = require('express');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const bcrypt = require('bcrypt');
+const prisma = require('./db.js');
+
 const app = express();
 
-app.listen(3000, ()=>{
-    console.log("Sever is now listening at port 3000");
-})
+// Use CORS middleware
+app.use(cors({
+  origin: 'http://localhost:5173', // Allow requests from this origin
+  methods: 'GET,POST',
+  allowedHeaders: 'Content-Type',
+}));
 
-client.connect();
+app.use(bodyParser.json());
 
-app.get('/users', (req, res)=>{
-    client.query(`Select * from users`, (err, result)=>{
-        if(!err){
-            res.send(result.rows);
-        }
-    });
-    client.end;
-})
+app.listen(3000, () => {
+    console.log("Server is now listening at port 3000");
+});
+
+// Get all users
+app.get('/users', async (req, res) => {
+    try {
+        const users = await prisma.user.findMany();
+        res.json(users);
+    } catch (error) {
+        res.status(500).send(error.message);
+    }
+});
 
 // User signup
-app.post('/signup', (req, res) => {
+app.post('/signup', async (req, res) => {
     const { username, password, email } = req.body;
-    client.query('INSERT INTO users (username, password, email) VALUES ($1, $2, $3) RETURNING *', 
-                 [username, password, email], (err, result) => {
-        if (!err) {
-            res.status(201).send(result.rows[0]);
-        } else {
-            res.status(500).send(err.message);
-        }
-    });
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const user = await prisma.user.create({
+            data: {
+                username,
+                password: hashedPassword,
+                email
+            }
+        });
+        res.status(201).json(user);
+    } catch (error) {
+        res.status(500).send(error.message);
+    }
 });
 
 // User login
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
     const { username, password } = req.body;
-    client.query('SELECT * FROM users WHERE username = $1 AND password = $2', [username, password], (err, result) => {
-        if (!err && result.rows.length > 0) {
+    try {
+        const user = await prisma.user.findUnique({
+            where: {
+                username
+            }
+        });
+        if (user && await bcrypt.compare(password, user.password)) {
             res.send('Login successful');
         } else {
             res.status(401).send('Invalid username or password');
         }
-    });
+    } catch (error) {
+        res.status(500).send(error.message);
+    }
 });
 
-client.on('end', () => {
-    console.log('Client disconnected');
+// Add process exit event listeners to disconnect Prisma gracefully
+process.on('SIGINT', async () => {
+    await prisma.$disconnect();
+    process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+    await prisma.$disconnect();
+    process.exit(0);
+});
+
+process.on('exit', async () => {
+    await prisma.$disconnect();
 });
