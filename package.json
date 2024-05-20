@@ -1,0 +1,25 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "This is the folder holding the backend code for salaama Bank CMS",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yusin888/Salaama-Bank-CMS.git"
+  },
+  "author": "Yusin Ali",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/yusin888/Salaama-Bank-CMS/issues"
+  },
+  "homepage": "https://github.com/yusin888/Salaama-Bank-CMS#readme",
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "express": "^4.19.2",
+    "pg": "^8.11.5"
+  }
+}
