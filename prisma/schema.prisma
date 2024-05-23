@@ -14,19 +14,20 @@ generator client {
 }
 
 model User {
-  id         Int      @id @default(autoincrement())
-  username   String   @unique
+  id         Int          @id @default(autoincrement())
+  username   String       @unique
   password   String
-  email      String   @unique
-  createdAt  DateTime @default(now())
-  Transaction Transaction[]
+  email      String       @unique
+  createdAt  DateTime     @default(now())
+  balance    Float        @default(0.0) // Add balance field
+  transactions Transaction[]
 }
 
 model Transaction {
   id              Int      @id @default(autoincrement())
   amount          Float
   transactionDate DateTime @default(now())
+  type            String   // Add type field
   userId          Int
   user            User     @relation(fields: [userId], references: [id])
 }
-
