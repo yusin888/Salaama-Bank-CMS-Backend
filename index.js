@@ -69,6 +69,7 @@ app.post('/login', async (req, res) => {
   }
 });
 
+
 // Get user details
 app.get('/user-details', async (req, res) => {
   const authToken = req.headers.authorization.split(' ')[1];
@@ -271,6 +272,74 @@ app.post('/withdraw', async (req, res) => {
     res.status(500).send('Server error');
   }
 });
+
+// Cash in Cheque endpoint
+app.post('/cash-in-cheque', async (req, res) => {
+  const { amount, chequeNumber, senderUsername } = req.body;
+  const authToken = req.headers.authorization.split(' ')[1];
+
+  try {
+    const decoded = jwt.verify(authToken, secretKey);
+    const recipient = await prisma.user.findUnique({
+      where: { id: decoded.userId }
+    });
+
+    if (!recipient) {
+      return res.status(404).send('Recipient not found');
+    }
+
+    if (!amount || amount <= 0) {
+      return res.status(400).send('Invalid amount');
+    }
+
+    const sender = await prisma.user.findUnique({
+      where: { username: senderUsername }
+    });
+
+    if (!sender) {
+      return res.status(404).send('Sender not found');
+    }
+
+    if (sender.balance < amount) {
+      return res.status(400).send('Sender has insufficient balance');
+    }
+
+    const newSenderBalance = sender.balance - amount;
+    const newRecipientBalance = recipient.balance + amount;
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: sender.id },
+        data: { balance: newSenderBalance },
+      }),
+      prisma.user.update({
+        where: { id: recipient.id },
+        data: { balance: newRecipientBalance },
+      }),
+      prisma.transaction.create({
+        data: {
+          userId: sender.id,
+          type: 'Cheque Sent',
+          amount: -amount,
+          transactionDate: new Date(),
+        },
+      }),
+      prisma.transaction.create({
+        data: {
+          userId: recipient.id,
+          type: 'Cheque Received',
+          amount,
+          transactionDate: new Date(),
+        },
+      }),
+    ]);
+
+    res.status(201).send('Cheque cashed successfully');
+  } catch (error) {
+    res.status(500).send('Server error');
+  }
+});
+
 
   
 // Add process exit event listeners to disconnect Prisma gracefully
