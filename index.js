@@ -228,6 +228,50 @@ app.get('/account-statement', async (req, res) => {
   });
   
   
+// Withdraw endpoint
+app.post('/withdraw', async (req, res) => {
+  const { amount, method} = req.body;
+  const authToken = req.headers.authorization.split(' ')[1];
+
+  try {
+    const decoded = jwt.verify(authToken, secretKey);
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId }
+    });
+
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    if (!amount || amount <= 0) {
+      return res.status(400).send('Invalid amount');
+    }
+
+    let newBalance = user.balance - amount;
+    if (newBalance < -5000) {
+      return res.status(400).send('Balance cannot go below -5000');
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { balance: newBalance },
+    });
+
+    await prisma.transaction.create({
+      data: {
+        userId: user.id,
+        amount: -amount,
+        type: method === 'Mpesa' ? 'Withdraw (Mpesa)' : 'Withdraw (ATM)',
+        transactionDate: new Date(),
+      },
+    });
+
+    res.status(201).send('Withdrawal successful');
+  } catch (error) {
+    res.status(500).send('Server error');
+  }
+});
+
   
 // Add process exit event listeners to disconnect Prisma gracefully
 process.on('SIGINT', async () => {
