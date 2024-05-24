@@ -69,6 +69,39 @@ app.post('/login', async (req, res) => {
   }
 });
 
+// Update user profile
+app.post('/update-profile', async (req, res) => {
+  const { username, email, password } = req.body;
+  const authToken = req.headers.authorization.split(' ')[1];
+
+  try {
+    const decoded = jwt.verify(authToken, secretKey);
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+    });
+
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    const updateData = { username, email };
+
+    if (password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      updateData.password = hashedPassword;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: updateData,
+    });
+
+    res.status(200).json(updatedUser);
+  } catch (error) {
+    res.status(500).send('Server error');
+  }
+});
+
 
 // Get user details
 app.get('/user-details', async (req, res) => {
